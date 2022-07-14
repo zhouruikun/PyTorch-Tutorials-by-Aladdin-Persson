@@ -7,6 +7,8 @@ import torchvision.models
 from torch.utils.data import DataLoader
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+from torchsummary import summary
+from torchvision.models import VGG16_Weights
 # %%
 # set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -52,13 +54,13 @@ def check_accuracy(loader, model):
 # %%
 
 
-model = torchvision.models.alexnet(pretrained=True)
+model = torchvision.models.vgg16(weights=VGG16_Weights.DEFAULT)
 # for param in model.parameters():
 #     param.requires_grad = False
 # model.avgpool = Identify()
-model.classifier[6] = nn.Linear(4096, num_classes)
+# model.classifier = nn.Linear(2048, num_classes)
 model.to(device)
-print(model)
+summary(model, (3, 64, 64))
 # %%  load data
 train_dataset = datasets.CIFAR100(root='dataset/', train=True, transform=transforms.ToTensor(), download=True)
 train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
