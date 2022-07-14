@@ -12,14 +12,84 @@ import torchvision.transforms as transforms
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # hyper parameters
 in_channels = 3
-num_classes = 10
-learning_rate = 1e-3
-batch_size = 64
+num_classes = 100
+learning_rate = 3e-5
+batch_size = 128
 num_epochs = 5
 
-import sys
 
-model = torchvision.models.vgg16(pretrained=True)
-print(model)
+class Identify(nn.Module):
+    def __init__(self):
+        super(Identify, self).__init__()
 
+    def forward(self, x):
+        return x
+# %% check accuracy on training & test to see how good our model
+
+
+def check_accuracy(loader, model):
+    if loader.dataset.train:
+        print("checking accuracy on training data")
+    else:
+        print("checking accuracy on test data")
+
+    num_correct = 0
+    num_samples = 0
+    model.eval()
+
+    with torch.no_grad():
+        for x, y in loader:
+            x = x.to(device)
+            y = y.to(device)
+
+            score = model(x)
+            _, prediction = score.max(1)
+            num_correct += (prediction == y).sum()
+            num_samples += prediction.size(0)
+
+        print(f'Got {num_correct} / {num_samples} with accuracy {float(num_correct)/float(num_samples)*100:.2f}')
+    model.train()
 # %%
+
+
+model = torchvision.models.alexnet(pretrained=True)
+# for param in model.parameters():
+#     param.requires_grad = False
+# model.avgpool = Identify()
+model.classifier[6] = nn.Linear(4096, num_classes)
+model.to(device)
+print(model)
+# %%  load data
+train_dataset = datasets.CIFAR100(root='dataset/', train=True, transform=transforms.ToTensor(), download=True)
+train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+test_dataset = datasets.CIFAR100(root='dataset/', train=False, transform=transforms.ToTensor(), download=True)
+test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
+# %% Loss and optimizer
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+# %% train
+
+for epoch in range(num_epochs):
+    for batch_idx, (data, targets) in enumerate(train_loader):
+        targets = targets.to(device)
+        data = data.to(device)
+        # forward
+        scores = model(data)
+        loss = criterion(scores, targets)
+        # backward
+        optimizer.zero_grad()
+        loss.backward()
+
+        # gradient descent or adam step
+        optimizer.step()
+        if batch_idx % 100 == 0:
+            print(f'epoch {epoch}: {batch_size*batch_idx}/{len(train_dataset.data)} with loss = {loss.item()}')
+    check_accuracy(test_loader, model)
+    check_accuracy(train_loader, model)
+# %%
+
+
+check_accuracy(train_loader, model)
+check_accuracy(test_loader, model)
+# %%
+print(device)
